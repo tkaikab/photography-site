@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astrophotography Settings Suggestor</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+    }
+    .container {
+      max-width: 700px;
+      margin: 2rem auto;
+      background-color: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label, select, input {
+      display: block;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    button {
+      padding: 0.75rem;
+      background-color: #1e40af;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #results {
+      margin-top: 1.5rem;
+      background-color: #e8f5e9;
+      padding: 1rem;
+      border-radius: 5px;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 2rem;
+    }
+    canvas {
+      margin-top: 2rem;
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Astrophotography Settings Suggestor</h1>
+    <p>Use this tool to plan your ideal camera settings based on your gear, subject, and location.</p>
+
+    <label for="focalLength">Lens Focal Length (mm)</label>
+    <select id="focalLength">
+      <option value="14">14</option>
+      <option value="24">24</option>
+      <option value="35">35</option>
+      <option value="50">50</option>
+      <option value="85">85</option>
+    </select>
+
+    <label for="sensor">Camera Sensor Type</label>
+    <select id="sensor">
+      <option value="full">Full Frame</option>
+      <option value="crop">Crop Sensor (APS-C)</option>
+    </select>
+
+    <label for="aperture">Lens Aperture (f-stop)</label>
+    <select id="aperture">
+      <option value="1.4">f/1.4</option>
+      <option value="2.0">f/2.0</option>
+      <option value="2.8" selected>f/2.8</option>
+      <option value="4.0">f/4.0</option>
+      <option value="5.6">f/5.6</option>
+    </select>
+
+    <label for="location">Location Type</label>
+    <select id="location">
+      <option value="dark">Dark Sky (Rural)</option>
+      <option value="suburban">Suburban</option>
+      <option value="urban">Urban</option>
+    </select>
+
+    <label for="weather">Weather Conditions</label>
+    <select id="weather">
+      <option value="clear">Clear</option>
+      <option value="partly">Partly Cloudy</option>
+      <option value="hazy">Hazy / Light Pollution</option>
+    </select>
+
+    <label for="subject">Subject</label>
+    <select id="subject">
+      <option value="milkyway">Milky Way</option>
+      <option value="startrails">Star Trails</option>
+      <option value="moon">Moon</option>
+      <option value="planets">Planets</option>
+    </select>
+
+    <button onclick="suggestSettings()">Get Settings</button>
+
+    <div id="results"></div>
+    <canvas id="radarChart"></canvas>
+    <a class="back-link" href="index.html">Return to Home</a>
+  </div>
+
+  <script>
+    function suggestSettings() {
+      const focal = parseInt(document.getElementById('focalLength').value);
+      const sensor = document.getElementById('sensor').value;
+      const aperture = parseFloat(document.getElementById('aperture').value);
+      const location = document.getElementById('location').value;
+      const weather = document.getElementById('weather').value;
+      const subject = document.getElementById('subject').value;
+
+      let cropFactor = sensor === 'crop' ? 1.5 : 1;
+      let effectiveFocal = focal * cropFactor;
+
+      let shutterBase = subject === 'milkyway' ? 500 : subject === 'startrails' ? 200 : 100;
+      let shutter = Math.round(shutterBase / effectiveFocal);
+      if (subject === 'moon' || subject === 'planets') shutter = 1 / (focal * 2);
+
+      let iso;
+      if (aperture > 2.8) {
+        iso = location === 'urban' ? '3200–6400' : location === 'suburban' ? '1600–3200' : '800–1600';
+      } else {
+        iso = location === 'urban' ? '1600–3200' : location === 'suburban' ? '800–1600' : '400–800';
+      }
+      if (weather === 'hazy') iso = "Adjust upward to compensate for haze or pollution";
+
+      let tips = [];
+      if (subject === 'startrails') tips.push("Consider stacking multiple long exposures for better results.");
+      if (subject === 'moon') tips.push("Use lower ISO and faster shutter speed to avoid overexposure.");
+      if (subject === 'planets') tips.push("Use a telephoto lens or telescope adapter for better detail.");
+      if (location === 'urban') tips.push("Light pollution filters may improve contrast.");
+      if (aperture >= 4.0) tips.push("A wider aperture would help in low light situations.");
+      if (shutter < 10) tips.push("Try increasing your exposure time with a tripod to capture more light.");
+      if (weather === 'clear') tips.push("Take advantage of the clear skies by reducing ISO slightly for cleaner images.");
+
+      // Ensure at least two tips are displayed
+      while (tips.length < 2) {
+        tips.push("Experiment with composition and framing to add visual interest to your shots.");
+      }
+
+      document.getElementById('results').innerHTML = `
+        <strong>Recommended Settings:</strong><br>
+        Shutter Speed: ${shutter} seconds<br>
+        ISO: ${iso}<br>
+        Aperture: f/${aperture}<br><br>
+        <strong>Tips:</strong><br>
+        <ul>${tips.map(tip => `<li>${tip}</li>`).join('')}</ul>
+      `;
+
+      const data = {
+        labels: ['Shutter Speed', 'Aperture Size', 'ISO Sensitivity', 'Light Pollution Risk', 'Subject Complexity'],
+        datasets: [{
+          label: 'Exposure Balance Chart',
+          backgroundColor: 'rgba(30, 64, 175, 0.3)',
+          borderColor: 'rgba(30, 64, 175, 1)',
+          pointBackgroundColor: 'rgba(30, 64, 175, 1)',
+          data: [
+            Math.min(10, shutter),
+            10 - (aperture * 2),
+            iso.includes('Adjust') ? 7 : iso.includes('6400') ? 9 : iso.includes('3200') ? 8 : 6,
+            location === 'urban' ? 9 : location === 'suburban' ? 6 : 3,
+            subject === 'milkyway' ? 9 : subject === 'startrails' ? 7 : subject === 'planets' ? 8 : 5
+          ]
+        }]
+      };
+
+      new Chart(document.getElementById('radarChart'), {
+        type: 'radar',
+        data: data,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            }
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
+              max: 10
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
